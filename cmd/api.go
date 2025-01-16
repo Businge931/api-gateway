@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/Businge931/api-gateway/internal/app/handlers"
 	"github.com/Businge931/api-gateway/internal/core/domain"
-	"github.com/gorilla/mux"
 
 	log "github.com/sirupsen/logrus"
 )
