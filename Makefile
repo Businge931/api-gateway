@@ -4,9 +4,6 @@ GOBIN = $(GOBASE)/build/bin
 LINT_PATH = $(GOBASE)/build/lint
 MAIN_APP = $(GOBASE)/cmd
 
-###  mockgen -source=producer/producer.go -destination=producer/mocks/mock_producer.go -package=mocks
-
-####  mockgen -source=consumer/consumer.go -destination=consumer/mocks/mock_consumer.go -package=mocks
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
