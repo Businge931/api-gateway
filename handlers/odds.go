@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -30,33 +31,69 @@ func validateLeagueAndDate(league, date string) (string, bool) {
 	return "", true
 }
 
+// handleValidationError writes a validation error response
 func handleValidationError(w http.ResponseWriter, errMsg string) {
 	http.Error(w, errMsg, http.StatusForbidden)
 }
 
-func (handler *OddsHandler) CreateOdds(w http.ResponseWriter, r *http.Request) {
-	var req proto.CreateOddsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// handleOddsRequest is a helper function to handle common logic for odds requests
+func (h *OddsHandler) handleOddsRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	grpcCall func(context.Context, interface{}) (interface{}, error),
+	req interface{},
+) {
+	// Decode the request body
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		handleValidationError(w, `{"details": "Invalid request"}`)
 		return
 	}
 
-	if errMsg, valid := validateLeagueAndDate(req.GetLeague(), req.GetGameDate()); !valid {
+	// Validate league and date
+	var league, date string
+	switch r := req.(type) {
+	case *proto.CreateOddsRequest:
+		league, date = r.GetLeague(), r.GetGameDate()
+	case *proto.ReadOddsRequest:
+		league, date = r.GetLeague(), r.GetDate()
+	case *proto.UpdateOddsRequest:
+		league, date = r.GetLeague(), r.GetGameDate()
+	case *proto.DeleteOddsRequest:
+		league, date = r.GetLeague(), r.GetGameDate()
+	}
+
+	if errMsg, valid := validateLeagueAndDate(league, date); !valid {
 		handleValidationError(w, errMsg)
 		return
 	}
 
-	res, err := handler.client.CreateOdds(r.Context(), &req)
+	// Call the gRPC method
+	res, err := grpcCall(r.Context(), req)
 	if err != nil {
 		handleGRPCError(w, err)
 		return
 	}
 
-	if !res.GetSuccess() {
-		handleValidationError(w, `{"details": "`+res.GetDetails()+`"}`)
+	// Check if the operation was successful
+	var success bool
+	var details string
+	switch r := res.(type) {
+	case *proto.CreateOddsResponse:
+		success, details = r.GetSuccess(), r.GetDetails()
+	case *proto.ReadOddsResponse:
+		success, details = true, "" // Read operation always considered successful if we reach here
+	case *proto.UpdateOddsResponse:
+		success, details = r.GetSuccess(), r.GetDetails()
+	case *proto.DeleteOddsResponse:
+		success, details = r.GetSuccess(), r.GetDetails()
+	}
+
+	if !success {
+		handleValidationError(w, `{"details": "`+details+`"}`)
 		return
 	}
 
+	// Write the response
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(res); err != nil {
@@ -65,90 +102,30 @@ func (handler *OddsHandler) CreateOdds(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (handler *OddsHandler) ReadOdds(w http.ResponseWriter, r *http.Request) {
-	var req proto.ReadOddsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		handleValidationError(w, `{"details": "Invalid request"}`)
-		return
-	}
-
-	if _, err := time.Parse("2006-01-02", req.GetDate()); err != nil {
-		handleValidationError(w, `{"details": "Invalid date format. Use YYYY-MM-DD"}`)
-		return
-	}
-
-	res, err := handler.client.ReadOdds(r.Context(), &req)
-	if err != nil {
-		handleGRPCError(w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		http.Error(w, `{"details": "Failed to encode response"}`, http.StatusInternalServerError)
-		return
-	}
+// CreateOdds handles the creation of odds
+func (h *OddsHandler) CreateOdds(w http.ResponseWriter, r *http.Request) {
+	h.handleOddsRequest(w, r, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return h.client.CreateOdds(ctx, req.(*proto.CreateOddsRequest))
+	}, &proto.CreateOddsRequest{})
 }
 
-func (handler *OddsHandler) UpdateOdds(w http.ResponseWriter, r *http.Request) {
-	var req proto.UpdateOddsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		handleValidationError(w, `{"details": "Invalid request"}`)
-		return
-	}
-
-	if errMsg, valid := validateLeagueAndDate(req.GetLeague(), req.GetGameDate()); !valid {
-		handleValidationError(w, errMsg)
-		return
-	}
-
-	res, err := handler.client.UpdateOdds(r.Context(), &req)
-	if err != nil {
-		handleGRPCError(w, err)
-		return
-	}
-
-	if !res.GetSuccess() {
-		handleValidationError(w, `{"details": "`+res.GetDetails()+`"}`)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		http.Error(w, `{"details": "Failed to encode response"}`, http.StatusInternalServerError)
-		return
-	}
+// ReadOdds handles the updating of odds
+func (h *OddsHandler) ReadOdds(w http.ResponseWriter, r *http.Request) {
+	h.handleOddsRequest(w, r, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return h.client.ReadOdds(ctx, req.(*proto.ReadOddsRequest))
+	}, &proto.ReadOddsRequest{})
 }
 
-func (handler *OddsHandler) DeleteOdds(w http.ResponseWriter, r *http.Request) {
-	var req proto.DeleteOddsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		handleValidationError(w, `{"details": "Invalid request"}`)
-		return
-	}
+// UpdateOdds handles the updating of odds
+func (h *OddsHandler) UpdateOdds(w http.ResponseWriter, r *http.Request) {
+	h.handleOddsRequest(w, r, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return h.client.UpdateOdds(ctx, req.(*proto.UpdateOddsRequest))
+	}, &proto.UpdateOddsRequest{})
+}
 
-	if errMsg, valid := validateLeagueAndDate(req.GetLeague(), req.GetGameDate()); !valid {
-		handleValidationError(w, errMsg)
-		return
-	}
-
-	res, err := handler.client.DeleteOdds(r.Context(), &req)
-	if err != nil {
-		handleGRPCError(w, err)
-		return
-	}
-
-	if !res.GetSuccess() {
-		handleValidationError(w, `{"details": "`+res.GetDetails()+`"}`)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		http.Error(w, `{"details": "Failed to encode response"}`, http.StatusInternalServerError)
-		return
-	}
+// DeleteOdds handles the deletion of odds
+func (h *OddsHandler) DeleteOdds(w http.ResponseWriter, r *http.Request) {
+	h.handleOddsRequest(w, r, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return h.client.DeleteOdds(ctx, req.(*proto.DeleteOddsRequest))
+	}, &proto.DeleteOddsRequest{})
 }
