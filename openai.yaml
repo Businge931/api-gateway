@@ -1,0 +1,167 @@
+openapi: 3.0.0
+info:
+  title: Odds Gateway API
+  version: 1.0.0
+paths:
+  /create:
+    post:
+      summary: Create odds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOddsRequest'
+      responses:
+        '200':
+          description: Success
+        '403':
+          description: Invalid request
+        '500':
+          description: Server error
+  /read:
+    get:
+      summary: Read odds
+      parameters:
+        - name: league
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+        '403':
+          description: Invalid request
+        '500':
+          description: Server error
+  /update:
+    put:
+      summary: Update odds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOddsRequest'
+      responses:
+        '200':
+          description: Success
+        '403':
+          description: Invalid request
+        '500':
+          description: Server error
+  /delete:
+    delete:
+      summary: Delete odds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteOddsRequest'
+      responses:
+        '200':
+          description: Success
+        '403':
+          description: Invalid request
+        '500':
+          description: Server error
+  /login:
+    post:
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Success
+        '403':
+          description: Invalid request
+        '500':
+          description: Server error
+  /register:
+    post:
+      summary: User registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Success
+        '403':
+          description: Invalid request
+        '500':
+          description: Server error
+components:
+  schemas:
+    CreateOddsRequest:
+      type: object
+      properties:
+        league:
+          type: string
+        home_team:
+          type: string
+        away_team:
+          type: string
+        home_team_win_odds:
+          type: number
+        away_team_win_odds:
+          type: number
+        draw_odds:
+          type: number
+        game_date:
+          type: string
+    UpdateOddsRequest:
+      type: object
+      properties:
+        league:
+          type: string
+        home_team:
+          type: string
+        away_team:
+          type: string
+        home_team_win_odds:
+          type: number
+        away_team_win_odds:
+          type: number
+        draw_odds:
+          type: number
+        game_date:
+          type: string
+    DeleteOddsRequest:
+      type: object
+      properties:
+        league:
+          type: string
+        home_team:
+          type: string
+        away_team:
+          type: string
+        game_date:
+          type: string
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
