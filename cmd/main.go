@@ -1,10 +1,15 @@
 package main
 
 import (
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/Businge931/sba-api-gateway/internal/api"
+	"github.com/Businge931/sba-api-gateway/internal/api/middleware"
+	"github.com/Businge931/sba-api-gateway/internal/app/service"
+	
+	gRPC "github.com/Businge931/sba-api-gateway/internal/client/grpc"
 )
 
 func main() {
@@ -21,16 +26,24 @@ func main() {
 	}
 	defer authConn.Close()
 
+	// Initialize gRPC clients
+	authClient := gRPC.NewAuthClient(authConn)
+	oddsClient := gRPC.NewOddsClient(oddsConn)
+
+	// Initialize services
+	authService := service.NewAuthService(authClient)
+	oddsService := service.NewOddsService(oddsClient)
+
 	// Setup routes
-	r := setupRoutes(oddsConn, authConn)
+	router := api.SetupRoutes(authService, oddsService)
 
 	// Register middleware
-	r.Use(loggingMiddleware)
+	router.Use(middleware.LoggingMiddleware)
 
 	// Add CORS middleware
-	corsHandler := getCORSConfig()
-	handler := corsHandler.Handler(r)
+	corsHandler := middleware.GetCORSConfig()
+	handler := corsHandler.Handler(router)
 
 	// Start the server
-	start(handler, ":8080")
+	api.Start(handler, ":8080")
 }
